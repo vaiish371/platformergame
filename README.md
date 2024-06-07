@@ -10,9 +10,14 @@ Pycharm or Visual Studio IDE
 <br/>
 Install Python Arcade package: 2.6.17
 
+### Running the Game
+1. Install pre-requisites
+2. Clone the repository\
+   `git clone https://github.com/vaiish371/platformergame.git`
+3. Open preferred IDE
+4. Run the main.py file
+
 ### How to play
-
-
 * Move right: Press the `D` key
 * Move left: Press the `A` key
 * Jump: Press the `space` bar
