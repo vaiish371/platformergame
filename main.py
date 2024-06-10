@@ -1,6 +1,7 @@
 import arcade
 import arcade.gui
 
+from classes.Item import Item
 # from functions.load_texture_pair import load_texture_pair
 from classes.PlayerCharacter import PlayerCharacter
 from classes.EnemyCharacter import EnemyCharacter
@@ -44,10 +45,20 @@ UPDATES_PER_FRAME = 4
 RIGHT_FACING = 0
 LEFT_FACING = 1
 
+MUSIC_PATH = "assets/sounds/bg.wav"
+MUSIC_VOLUME = 0.1
+
+ITEM_SCALING = 2
+
 
 class MyGame(arcade.View):
-    def __init__(self):
+    def __init__(self, music_path):
         super().__init__()
+
+        # ost
+        self.music_path = music_path
+        self.music = None
+        self.currently_playing = None
 
         # tile map
         self.tile_map = None
@@ -89,6 +100,14 @@ class MyGame(arcade.View):
             pos+=SPRITE_NATIVE_SIZE + 20
             self.heart_list.append(heart)
 
+        if self.music is not None:
+            # checks if the Music Player object has music is playing
+            # re-loops the music after game is restarted
+            if self.music.is_playing(self.currently_playing) is True:
+                self.music.stop(self.currently_playing)
+        self.music = arcade.Sound(self.music_path, streaming=True)
+        self.currently_playing = self.music.play(MUSIC_VOLUME, loop=True)
+
         self.load_level(self.level)
 
     def load_level(self, level):
@@ -116,6 +135,18 @@ class MyGame(arcade.View):
 
         # calculate the right edge of the map in pixels
         self.end_of_map = self.tile_map.width * GRID_PIXEL_SIZE
+
+        # set the player position based on whether he is
+        # going forward or backward through levels
+        if self.going is False:
+            # im going backwards
+            self.player.right = self.end_of_map
+            self.player.center_y = 1 * GRID_PIXEL_SIZE
+            self.player.character_face_direction = LEFT_FACING
+        else:
+            # im going forward so put me on the left side
+            self.player.center_x = 1 * GRID_PIXEL_SIZE
+            self.player.center_y = 1 * GRID_PIXEL_SIZE
 
         # load in the enemies of that level
         if "Enemies" in self.tile_map.object_lists:
@@ -169,6 +200,27 @@ class MyGame(arcade.View):
                     # add to scene
                     self.scene.add_sprite("Enemies", enemy)
 
+        # load the items for the level
+        if "Items" in self.tile_map.object_lists:
+            items_layer = self.tile_map.object_lists["Items"]
+            for i in items_layer:
+                cartesian = self.tile_map.get_cartesian(
+                    abs(i.shape[0]), abs(i.shape[1])
+                )
+                item_type = i.properties["name"]
+                if item_type == "health":
+                    item = Item(
+                        item_type, ITEM_SCALING, SPRITE_NATIVE_SIZE, GUI_SCALING, UPDATES_PER_FRAME,
+                        "assets/Items/apple/", "assets/Items/collect/"
+                    )
+                else:
+                    item = False
+                if item is not False:
+                    # multiply the tile position by the tile size in pixels and scaling
+                    item.center_x = cartesian[0] * GRID_PIXEL_SIZE
+                    item.center_y = cartesian[1] * GRID_PIXEL_SIZE
+                    self.scene.add_sprite("Items", item)
+
         # start the physics engine
         # Create the 'physics engine'
         self.physics_engine = arcade.PhysicsEnginePlatformer(
@@ -212,6 +264,7 @@ class MyGame(arcade.View):
         if key == arcade.key.SPACE:
             if self.physics_engine.can_jump():
                 self.player.change_y = PLAYER_JUMP_SPEED
+                arcade.play_sound(self.player.jump_sound)
 
         elif key == arcade.key.A:
             self.player.change_x = -MOVEMENT_SPEED
@@ -320,6 +373,25 @@ class MyGame(arcade.View):
                     if self.scene.game_over is True:
                         self.window.show_view(GameOverView(self))
 
+            # handling items and updating them if they exist
+            if "Items" in self.tile_map.object_lists:
+                pickup_list = arcade.check_for_collision_with_list(self.player, self.scene["Items"])
+                for item in pickup_list:
+                    # collected marks object for removal and plays removal animation
+                    item.collected = True
+                    # handle item pickup and item adding to inventory here (create function)
+                    if item.collect_wait == 0:
+                        arcade.play_sound(self.player.collect_item)
+                        self.player, self.heart_list = item.run_behavior(
+                            self.player, self.heart_list
+                        )
+                # update the items animation
+                self.scene.update_animation(delta_time, ["Items"])
+                # update items
+                self.scene.update(
+                    ["Items"]
+                )
+
             # updating movement and environment
             # Update Animations
             self.scene.update_animation(
@@ -341,7 +413,7 @@ def main():
 
     # 1. Create StartMenu object
     # 2. Initialize it with game view
-    game_view = MyGame()
+    game_view = MyGame(MUSIC_PATH)
     start_menu = MenuView(game_view)
 
     # 3. show view is called on the Start Menu object

@@ -19,6 +19,17 @@ class PlayerCharacter(arcade.Sprite):
     def __init__(self, direction, scaling, updates_per_frame):
         super().__init__()
 
+        # some delay between the sounds
+        self.walk_sound_delay = 0.4
+        self.walk_sound_last = 0
+
+        # load sounds
+        # another way to create a Sound object
+        self.jump_sound = arcade.load_sound("assets/sounds/jump.wav")
+        self.walk_sound = arcade.load_sound("assets/sounds/walking.wav")
+        self.hit_sound = arcade.load_sound("assets/sounds/hit.wav")
+        self.collect_item = arcade.load_sound("assets/sounds/collect.wav")
+
         # face right by default
         self.character_face_direction = direction
         self.cur_run_texture = 0
@@ -72,6 +83,9 @@ class PlayerCharacter(arcade.Sprite):
     def take_damage(self, scene_info, heart_list):
         if self.immune is False:
             self.health-=1
+
+            arcade.play_sound(self.hit_sound)
+
             heart_list.pop()
 
             if self.health == 0:
@@ -110,6 +124,12 @@ class PlayerCharacter(arcade.Sprite):
             if self.immune_wait > 12 * self.updates_per_frame:
                 self.immune_wait = 0
                 self.immune = False
+
+        # handling walking sounds
+        self.walk_sound_last += delta_time
+        if self.walk_sound_last >= self.walk_sound_delay:
+            self.walk_sound_last = 0
+            arcade.play_sound(self.walk_sound)
 
         # hit
         if self.immune is True:
